@@ -8,5 +8,12 @@ edition = "2021"
 [dependencies]
 # egg = "0.8"
 egg = { path = "../egg" }
+
+# for the interval library
 num = "0.4"
 auto_ops = "0.3"
+
+# for the main function
+rustyline = { version = "9.1.2", default-features = false }
+rustyline-derive = "0.6"
+# reedline = "0.6"

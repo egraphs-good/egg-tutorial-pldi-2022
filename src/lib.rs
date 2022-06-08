@@ -1,4 +1,7 @@
-mod interval;
+//! This `lib.rs` file is the root of the library.
+//!
+//! There's not much in here except for declarations of
+//! the other projects in the file
 
 // - 9:00 - 10:00
 //     - 9:00 - 9:15
@@ -29,69 +32,57 @@ mod interval;
 //         - promo EGRAPHS and PLDI talks
 //         - THANKS!
 
-use egg::*;
-use interval::Interval;
+// The provided, simple interval library
+pub mod interval;
 
-type Num = num::BigRational;
+pub fn make_repl(mut f: impl FnMut(&str)) {
+    use rustyline::error::ReadlineError;
+    use rustyline::validate::{
+        MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
+    };
+    use rustyline::{Editor, Result};
+    use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
-define_language! {
-    enum Math {
-        Num(Num),
-        "+" = Add([Id; 2]),
-        "-" = Sub([Id; 2]),
-        "*" = Mul([Id; 2]),
-        "/" = Div([Id; 2]),
-        Var(Symbol),
-    }
-}
+    #[derive(Completer, Helper, Highlighter, Hinter)]
+    struct MyHelper(MatchingBracketValidator);
 
-struct ConstantFold;
-impl Analysis<Math> for ConstantFold {
-    type Data = Option<Num>;
-
-    fn make(egraph: &EGraph<Math, Self>, enode: &Math) -> Self::Data {
-        let get = |id: &Id| egraph[*id].data.as_ref();
-        match enode {
-            Math::Num(n) => Some(n.clone()),
-            Math::Add([a, b]) => Some(get(a)? + get(b)?),
-            Math::Mul([a, b]) => Some(get(a)? * get(b)?),
-            _ => None,
+    // make my own validator to check for matched parens
+    impl Validator for MyHelper {
+        fn validate(&self, ctx: &mut ValidationContext) -> Result<ValidationResult> {
+            self.0.validate(ctx)
         }
     }
 
-    fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
-        egg::merge_option(to, from, |a, b| {
-            assert_eq!(a, &b);
-            DidMerge(false, false)
-        })
+    let h = MyHelper(MatchingBracketValidator::new());
+    let mut rl = Editor::new();
+    rl.set_helper(Some(h));
+
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
     }
-}
-
-// Interval analysis
-// https://arxiv.org/abs/2203.09191
-struct IntervalAnalysis;
-impl Analysis<Math> for IntervalAnalysis {
-    type Data = Interval;
-
-    fn make(egraph: &EGraph<Math, Self>, enode: &Math) -> Self::Data {
-        let get = |id: &Id| &egraph[*id].data;
-        match enode {
-            Math::Num(n) => Interval::singleton(n.clone()),
-            Math::Add([a, b]) => get(a) + get(b),
-            Math::Sub([a, b]) => get(a) - get(b),
-            Math::Mul([a, b]) => get(a) + get(b),
-            Math::Div([a, b]) => get(a) / get(b),
-            _ => Interval::default(),
+    loop {
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                use std::panic::{catch_unwind, AssertUnwindSafe};
+                if catch_unwind(AssertUnwindSafe(|| f(&line))).is_err() {
+                    println!("Caught a panic!");
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
         }
     }
-
-    fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
-        egg::merge_option(&mut to.lo, from.lo, egg::merge_max)
-            | egg::merge_option(&mut to.hi, from.hi, egg::merge_min)
-    }
-}
-
-#[test]
-fn simple_test() {
-    let expr: RecExpr<Math> = "(+ 3 2)".parse().unwrap();
+    rl.save_history("history.txt").unwrap();
 }
