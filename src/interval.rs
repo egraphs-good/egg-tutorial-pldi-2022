@@ -19,8 +19,21 @@ fn map2(
     }
 }
 
-pub fn ival(lo: impl Into<f64>, hi: impl Into<f64>) -> Interval {
-    Interval::from_f64s(lo.into(), hi.into())
+pub fn ival(s: &str) -> Interval {
+    let (lo, hi) = s.split_once(',').unwrap();
+    let (lo, hi) = (lo.trim(), hi.trim());
+    Interval {
+        lo: if lo == "-inf" {
+            None
+        } else {
+            Some(lo.parse().unwrap())
+        },
+        hi: if hi == "inf" {
+            None
+        } else {
+            Some(hi.parse().unwrap())
+        },
+    }
 }
 
 impl Interval {
@@ -29,6 +42,13 @@ impl Interval {
         Self {
             lo: Some(n.clone()),
             hi: Some(n),
+        }
+    }
+
+    pub fn get_constant(&self) -> Option<&BigRational> {
+        match (self.lo.as_ref(), self.hi.as_ref()) {
+            (Some(lo), Some(hi)) if lo == hi => Some(lo),
+            _ => None,
         }
     }
 
@@ -116,16 +136,14 @@ impl_op_ex!(/ |a: &Interval, b: &Interval| -> Interval {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::{INFINITY, NEG_INFINITY};
-
     use super::*;
 
     #[test]
     fn test_contains() {
-        assert!(ival(0, 5).contains_zero());
-        assert!(ival(0, 0).contains_zero());
-        assert!(!ival(NEG_INFINITY, -1).contains_zero());
-        assert!(!ival(10, INFINITY).contains_zero());
+        assert!(ival("0, 5").contains_zero());
+        assert!(ival("0, 0").contains_zero());
+        assert!(!ival("-inf, -1").contains_zero());
+        assert!(!ival("10, inf").contains_zero());
     }
 
     #[test]

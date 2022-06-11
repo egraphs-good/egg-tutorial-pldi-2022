@@ -33,56 +33,7 @@
 //         - THANKS!
 
 // The provided, simple interval library
-pub mod interval;
+mod interval;
 
-pub fn make_repl(mut f: impl FnMut(&str)) {
-    use rustyline::error::ReadlineError;
-    use rustyline::validate::{
-        MatchingBracketValidator, ValidationContext, ValidationResult, Validator,
-    };
-    use rustyline::{Editor, Result};
-    use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-
-    #[derive(Completer, Helper, Highlighter, Hinter)]
-    struct MyHelper(MatchingBracketValidator);
-
-    // make my own validator to check for matched parens
-    impl Validator for MyHelper {
-        fn validate(&self, ctx: &mut ValidationContext) -> Result<ValidationResult> {
-            self.0.validate(ctx)
-        }
-    }
-
-    let h = MyHelper(MatchingBracketValidator::new());
-    let mut rl = Editor::new();
-    rl.set_helper(Some(h));
-
-    if rl.load_history("history.txt").is_err() {
-        println!("No previous history.");
-    }
-    loop {
-        let readline = rl.readline(">> ");
-        match readline {
-            Ok(line) => {
-                rl.add_history_entry(line.as_str());
-                use std::panic::{catch_unwind, AssertUnwindSafe};
-                if catch_unwind(AssertUnwindSafe(|| f(&line))).is_err() {
-                    println!("Caught a panic!");
-                }
-            }
-            Err(ReadlineError::Interrupted) => {
-                println!("CTRL-C");
-                break;
-            }
-            Err(ReadlineError::Eof) => {
-                println!("CTRL-D");
-                break;
-            }
-            Err(err) => {
-                println!("Error: {:?}", err);
-                break;
-            }
-        }
-    }
-    rl.save_history("history.txt").unwrap();
-}
+// re-export all the public items
+pub use interval::*;
