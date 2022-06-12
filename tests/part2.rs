@@ -129,6 +129,7 @@ fn rules() -> Vec<Rewrite<Math, IntervalAnalysis>> {
 // The function signature output here implements the `Condition` trait in egg.
 // So by making a function that outputs such functions, we have a "factory" for easily making
 // `Condition`s to be used in rules.
+#[allow(dead_code)] // delete this once you use it above!
 fn is_non_zero(var: &str) -> impl Fn(&mut EGraph<Math, IntervalAnalysis>, Id, &Subst) -> bool {
     let var: Var = var.parse().unwrap();
     move |egraph, _root, subst: &Subst| {
