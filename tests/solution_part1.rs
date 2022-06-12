@@ -28,9 +28,9 @@ define_language! {
         // This will parse a "+" symbol as an Add with two children
         // Note that the value of this variant is a [Id; 2], or an array of 2 Id's.
         "+" = Add([Id; 2]),
-        // TODO: Add Subtraction
+        "-" = Sub([Id; 2]),
         "*" = Mul([Id; 2]),
-        // TODO: Add Division
+        "/" = Div([Id; 2]),
         // Finally, this will parse anything else as a Var, like "foo"
         Var(Symbol),
     }
@@ -68,10 +68,9 @@ fn rules() -> Vec<Rewrite<Math, ConstantFold>> {
         rewrite!("assoc-add"; "(+ ?a (+ ?b ?c))" => "(+ (+ ?a ?b) ?c)"),
         rewrite!("assoc-mul"; "(* ?a (* ?b ?c))" => "(* (* ?a ?b) ?c)"),
     
-        // TODO: Add a rule that says subtraction is equivalent to
-        // multiplying by -1 and adding.
-        // TODO: Add a rule that says anything minus itself is equivalent to 0.
-    
+        rewrite!("canon-sub"; "(- ?a ?b)" => "(+ ?a (* -1 ?b))"),
+        rewrite!("cancel-sub"; "(- ?a ?a)" => "0"),
+
         rewrite!("zero-add"; "(+ ?a 0)" => "?a"),
         rewrite!("zero-mul"; "(* ?a 0)" => "0"),
         rewrite!("one-mul";  "(* ?a 1)" => "?a"),
@@ -82,8 +81,8 @@ fn rules() -> Vec<Rewrite<Math, ConstantFold>> {
         rewrite!("distribute"; "(* ?a (+ ?b ?c))"        => "(+ (* ?a ?b) (* ?a ?c))"),
         rewrite!("factor"    ; "(+ (* ?a ?b) (* ?a ?c))" => "(* ?a (+ ?b ?c))"),
 
-        // TODO: Add a rule that says anything divided by itself is equivalent to 1.
-        // TODO: Add a rule that says 0 divided by anything is equivalent to 0.
+        rewrite!("cancel-div"; "(/ ?a ?a)" => "1"),
+        rewrite!("zero-div"; "(/ 0 ?a)" => "0"),
         // 🤔 Do you notice any potential problems with this pair of rules?    
     ]
 }
@@ -118,9 +117,16 @@ impl Analysis<Math> for ConstantFold {
         match enode {
             Math::Num(n) => Some(n.clone()),
             Math::Add([a, b]) => Some(get(a)? + get(b)?),
-            // TODO: Implement the subtraction case
+            Math::Sub([a, b]) => Some(get(a)? - get(b)?),
             Math::Mul([a, b]) => Some(get(a)? * get(b)?),
-            // TODO: Implement the division case. Remember to handle division by zero!
+            Math::Div([a, b]) => {
+                let b = get(b)?;
+                if !b.is_zero() {
+                    Some(get(a)? / b)
+                } else {
+                    None
+                }
+            }
             Math::Var(_) => None,
         }
     }
@@ -187,8 +193,7 @@ egg::test_fn! {
 
 egg::test_fn! {math_simplify_add, rules(), "(+ x (+ x (+ x x)))" => "(* 4 x)" }
 
-// TODO: Uncomment this test and make sure it passes after you implement subtraction.
-// egg::test_fn! { math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
+egg::test_fn! { math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
 
 egg::test_fn! {
     math_simplify_factor, rules(),
@@ -197,12 +202,11 @@ egg::test_fn! {
     "(+ (+ (* x x) (* 4 x)) 3)"
 }
 
-// TODO: Uncomment this test and make sure it passes after you implement division.
 // This test crashes, but the `should_panic` expects that.
-// egg::test_fn! {
-//   #[should_panic(expected = "bad merge!")]
-//   simple_division, rules(), "(/ 0 0)" => "1", "0"
-// }
+egg::test_fn! {
+  #[should_panic(expected = "bad merge!")]
+  simple_division, rules(), "(/ 0 0)" => "1", "0"
+}
 // The problem here is the two division rules you added earlier:
 // If x/x = 1 *and* 0/x = 0, then when x = 0, we have 0/0 = 1 *and* 0/0 = 0
 // We'll see more about how to deal with this in the next part of the tutorial.
