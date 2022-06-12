@@ -102,6 +102,9 @@ fn optimize(s: &str) -> String {
         // place some limits just to make sure the demo is fast!
         .with_time_limit(Duration::from_secs_f64(0.5))
         .with_iter_limit(10)
+        // we don't need to use a hook for optimization,
+        // but the test_fn! macro uses it for equality checking
+        // .with_hook(|runner| ...)
         .run(&rules());
     let extractor = Extractor::new(&runner.egraph, AstSize);
 

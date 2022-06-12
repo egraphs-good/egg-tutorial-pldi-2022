@@ -36,6 +36,24 @@ pub fn ival(s: &str) -> Interval {
     }
 }
 
+impl std::fmt::Display for Interval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(")?;
+        if let Some(lo) = self.lo.as_ref() {
+            lo.fmt(f)?;
+        } else {
+            "-inf".fmt(f)?;
+        }
+        write!(f, ", ")?;
+        if let Some(hi) = self.hi.as_ref() {
+            hi.fmt(f)?;
+        } else {
+            "inf".fmt(f)?;
+        }
+        write!(f, ")")
+    }
+}
+
 impl Interval {
     pub fn singleton(n: impl Into<BigRational>) -> Self {
         let n = n.into();

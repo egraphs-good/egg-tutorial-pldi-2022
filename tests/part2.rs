@@ -93,9 +93,17 @@ fn rules() -> Vec<Rewrite<Math, IntervalAnalysis>> {
         rewrite!("div-mul";     "(/ (* ?a ?b) ?c)" => "(* ?a (/ ?b ?c))"),
 
         // Uh-oh! This pair of rules is unsound!!!
-        // rewrite!("cancel-div"; "(/ ?a ?a)" => "1"),
-        // rewrite!("zero-div";   "(/ 0 ?a)" => "0"),
+        rewrite!("cancel-div"; "(/ ?a ?a)" => "1" if is_non_zero("?a")),
+        rewrite!("zero-div";   "(/ 0 ?a)" => "0" if is_non_zero("?a")),
     ]
+}
+
+fn is_non_zero(var: &str) -> impl Fn(&mut EGraph<Math, IntervalAnalysis>, Id, &Subst) -> bool {
+    let var: Var = var.parse().unwrap();
+    move |egraph, _root, subst: &Subst| {
+        let id = subst[var];
+        !egraph[id].data.contains_zero()
+    }
 }
 
 // The same tests from part 1 should work fine!
@@ -134,6 +142,49 @@ egg::test_fn! {
         1)"
 }
 
+fn optimize_interval(s: &str, intervals: &[(&str, &str)]) -> Interval {
+    let expr: RecExpr<Math> = s.parse().unwrap();
+    let mut runner = Runner::default().with_expr(&expr);
+    let root = runner.roots[0];
+
+    for (e, interval) in intervals {
+        let e: RecExpr<Math> = e.parse().unwrap();
+        let id = runner.egraph.add_expr(&e);
+        let interval: Interval = ival(interval);
+        runner.egraph.set_analysis_data(id, interval)
+    }
+
+    // we have to call rebuild to propagate the updated
+    // analysis information throughout the e-graph
+    runner.egraph.rebuild();
+    println!("Initial interval: {}", runner.egraph[root].data);
+
+    runner = runner.run(&rules());
+
+    let final_interval = runner.egraph[root].data.clone();
+    println!("Final interval:   {}", final_interval);
+    final_interval
+}
+
+#[test]
+fn test2() {
+    assert_eq!(
+        optimize_interval(
+            "(- 1 
+                (/ (* 2 y)
+                   (+ x y)))",
+            &[("x", "0, 1"), ("y", "1, 2"),]
+        ),
+        ival("-1, 0")
+    );
+}
+
+#[test]
+fn squares() {
+    // Can we do better than naive multiplication?
+    optimize_interval("(* x x)", &[("x", "-2, 2")]);
+}
+
 #[test]
 fn test() {
     let expr: RecExpr<Math> = "
@@ -151,17 +202,16 @@ fn test() {
 
     let root = runner.roots[0];
 
+    // The interval hasn't been updated yet, because we haven't called
+    // rebuild to propagate the analysis
     assert_eq!(runner.egraph[root].data, Interval::default());
 
     runner.egraph.rebuild();
     assert_eq!(runner.egraph[root].data, ival("-3, 1/3"));
 
-    runner = runner
-        .with_scheduler(SimpleScheduler)
-        .with_iter_limit(4)
-        .run(&rules());
+    runner = runner.run(&rules());
 
-    assert_eq!(runner.egraph[root].data, ival("-3, 1/3"));
+    assert_eq!(runner.egraph[root].data, ival("-1, 0"));
 
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (_best_cost, best_expr) = extractor.find_best(runner.roots[0]);
