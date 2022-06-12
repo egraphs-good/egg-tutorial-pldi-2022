@@ -24,8 +24,8 @@ You will need the following tools to run this tutorial:
     - If using VSCode, install it from the Extensions menu.
     - Many other editors also support rust-analyzer.
 
-Once you have the tools, clone this repo and run to tests 
- using `cargo` (Rust's build tool) to make sure you're up and running!
+Once you have the tools, clone this repo and run the tests 
+ using `cargo` (Rust's build tool) to make sure you're up and running.
 ```
 git clone https://github.com/egraphs-good/egg-tutorial-pldi-2022.git
 cd egg-tutorial-pldi-2022
@@ -51,7 +51,7 @@ This is an `egg` tutorial (and a rather short one!),
 This is **not** a Rust tutorial, 
  so if you aren't familiar with Rust you may just have to settle for
  copy-pasting, tweaking things, and being puzzled over the various `&`s and `?`s.
-Thankfully there are a lot of good Rust resources out there. Here are some you might find useful:
+Thankfully, there are a lot of good Rust resources out there! Here are some you might find useful:
 - Rust [standard library documentation](https://doc.rust-lang.org/stable/std/)
 - [The Rust Book](https://doc.rust-lang.org/book/)
 
