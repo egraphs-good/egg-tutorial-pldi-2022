@@ -1,25 +1,64 @@
-//! part 2
-//!
-//! This time we will try making our own language for rational arithmetic.
-//! This will allow us to actually interpret some of the data in the e-nodes.
-//! In particular, we can implement our first e-class analysis that will
-//! perform constant folding!
-use egg::*;
-use std::time::Duration;
+// part 2
+//
+// This time we will try making our own language for rational arithmetic.
+// This will allow us to actually interpret some of the data in the e-nodes.
+// In particular, we can implement our first e-class analysis that will
+// perform constant folding!
 
+// Again, we'll just import everything from egg
+use egg::*;
+
+// We will use the "big rational" type from the popular `num` library
+// to power our rational arithmetic.
 use num::*;
+
+// This is just a type alias for the BigRational type.
 type Num = num::BigRational;
 
+// Now we define the e-node type.
+// E-nodes implement the `egg::Language` trait, and they are typically some
+// pairing of a operator and a list of children (as `Id`s).
+//
+// The `define_language` macro makes it easy for you to make your own
+// `Language`s from a Rust enum. This implements some nice parsing for you as well.
 define_language! {
     enum Math {
+        // This parses rationals as enums, like "4"
         Num(Num),
+        // This will parse a "+" symbol as an Add with two children
+        // Note that the value of this variant is a [Id; 2], or an array of 2 Id's.
         "+" = Add([Id; 2]),
         "-" = Sub([Id; 2]),
         "*" = Mul([Id; 2]),
         "/" = Div([Id; 2]),
+        // Finally, this will parse anything else as a Var, like "foo"
         Var(Symbol),
     }
 }
+
+#[test]
+fn insert_some_math_into_an_egraph() {
+    // let's try just using the language we just made
+    // we'll make an e-graph with just the unit () analysis for now
+    let mut egraph = EGraph::<Math, ()>::default();
+
+    // we can manually construct Math's and insert them with add
+    let zero = egraph.add(Math::Num(Num::zero()));
+    let one = egraph.add(Math::Num(Num::one()));
+    let zero_plus_one = egraph.add(Math::Add([zero, one]));
+
+    // we can also parse things into RecExprs
+    let expr: RecExpr<Math> = "(+ 0 1)".parse().unwrap();
+    let zero_plus_one2 = egraph.add_expr(&expr);
+
+    // hash consing makes sure these are the same
+    assert_eq!(zero_plus_one, zero_plus_one2);
+}
+
+// Okay, now let's make some rewrites!
+// We will make the rewrites for the ConstantFold analysis for now.
+// You can make rewrites generic over the analysis if you want,
+// but we'll just be concrete for now
 
 #[rustfmt::skip]
 fn rules() -> Vec<Rewrite<Math, ConstantFold>> {
@@ -49,14 +88,33 @@ fn rules() -> Vec<Rewrite<Math, ConstantFold>> {
     ]
 }
 
+// Now let's make the constant fold analysis.
+// The analysis itself is a zero-sized type with no data in it,
+// it's just a marker.
+//
+// Make sure to derive Default, since we want egg to be able to automatically
+// construct a (the only) value of this type.
 #[derive(Default)]
 struct ConstantFold;
 
+// Here's the actual implementation.
+// Analysis is the egg trait for e-class analyses. It is parameterized over the
+// Language that the analysis is for.
 impl Analysis<Math> for ConstantFold {
+    // This associated type tells you what type is attached to
+    // each e-class. We'll use an optional number to indicate the
+    // constant (maybe associated with each e-class).
     type Data = Option<Num>;
 
+    // This function tells egg how to construct a `Data` for a particular e-node.
+    // It's typically where most of your logic in an e-class analysis goes.
     fn make(egraph: &EGraph<Math, Self>, enode: &Math) -> Self::Data {
+        // first, we make a getter function that grabs the data for a given e-class id
         let get = |id: &Id| egraph[*id].data.as_ref();
+
+        // now, we write the evaluator. Since the `Data` type is an `Option`, we
+        // can use the `?` operator in Rust, which trys to unpack the
+        // preceding optional value, "bailing" from the enclosing function if it's None
         match enode {
             Math::Num(n) => Some(n.clone()),
             Math::Add([a, b]) => Some(get(a)? + get(b)?),
@@ -74,13 +132,25 @@ impl Analysis<Math> for ConstantFold {
         }
     }
 
+    // This function tells egg how to merge analysis data when e-class get unioned.
     fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
+        // You can implement this manually, but we'll use some of egg's provided
+        // combinators.
         egg::merge_option(to, from, |a, b| {
+            // For optional `Data`, this is pretty common. We are asserting that you never
+            // merge two classes that have different constant values.
             assert_eq!(a, &b, "bad merge!");
+            // Since a == b, we don't have to do anything to merge them, so we just say false, false
             DidMerge(false, false)
         })
+        // the return value is a `DidMerge`, which tells egg which "way" the merge went.
+        // It can be computed from the partial ordering over the `Data`.
     }
 
+    // This is an optional function that allows you to modify the e-graph itself
+    // in response to changing e-class analysis values (or anything else).
+    // Here, we use it to actually insert new e-nodes corresponding to computed
+    // constant values.
     fn modify(egraph: &mut EGraph<Math, Self>, id: Id) {
         if let Some(n) = egraph[id].data.clone() {
             let id2 = egraph.add(Math::Num(n));
@@ -89,7 +159,16 @@ impl Analysis<Math> for ConstantFold {
     }
 }
 
-egg::test_fn! { simple_constant_fold, rules(), "(* x (+ -1 2))" => "(* 1 x)", "x" }
+// Now, we can write some tests the prove the equivalence of terms.
+// We use the provided `test_fn` macro from egg to quickly generate such tests.
+
+egg::test_fn! {
+   simple_constant_fold, // the name of the test
+   rules(),              // the rules to be used
+   "(* x (+ -1 2))"      // the starting expression
+   =>
+   "(* 1 x)", "x"        // one or more ending exprs to prove the starting expr equivalent to
+}
 
 egg::test_fn! {math_simplify_add, rules(), "(+ x (+ x (+ x x)))" => "(* 4 x)" }
 egg::test_fn! { math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
@@ -101,17 +180,31 @@ egg::test_fn! {
     "(+ (+ (* x x) (* 4 x)) 3)"
 }
 
+// Try writing your owen equivalence tests!
+
+// Now we can try writing a optimizer!
+// For the sake of this demo, this function will be string -> string,
+// but it semantically takes and returns RecExpr<Math>.
 fn optimize(s: &str) -> String {
+    // parse the given expression
     let expr: RecExpr<Math> = s.parse().unwrap();
+
+    // Now we create a Runner to actually do the equality saturation.
+    // Runner have a builder-style set of methods to customize them.
     let runner = Runner::default()
         .with_expr(&expr)
         // place some limits just to make sure the demo is fast!
-        .with_time_limit(Duration::from_secs_f64(0.5))
+        .with_time_limit(std::time::Duration::from_secs_f64(0.5))
         .with_iter_limit(10)
         // we don't need to use a hook for optimization,
         // but the test_fn! macro uses it for equality checking
         // .with_hook(|runner| ...)
+        //
+        // Now we can actually give it the rules and run it.
+        // This consumes the Runner, so you have to rebind it.
         .run(&rules());
+
+    // Now we can extract using the built-in AstSize cost function.
     let extractor = Extractor::new(&runner.egraph, AstSize);
 
     // We want to extract the best expression represented in the
@@ -130,9 +223,9 @@ fn test_optimize() {
     // assert_eq!(optimize("(+ x y)"), "(+ x y)");
 }
 
+// What about those unsound division rules??
+// This test crashes, but the `should_panic` expects that.
 egg::test_fn! {
-  // if you uncomment the div rules above,
-  // try un-ignoring this test and see what happens!
   #[should_panic(expected = "bad merge!")]
   simple_division, rules(), "(/ 0 0)" => "1", "0"
 }
