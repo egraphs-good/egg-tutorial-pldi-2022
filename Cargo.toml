@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 # egg = "0.8"
-egg = { path = "../egg" }
+# egg = { path = "../egg" }
+egg = { git = "https://github.com/egraphs-good/egg", branch = "tutorial-changes" }
 
 # for the interval library
 num = "0.4"
