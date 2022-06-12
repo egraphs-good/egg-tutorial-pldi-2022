@@ -55,6 +55,15 @@ Thankfully, there are a lot of good Rust resources out there! Here are some you 
 - Rust [standard library documentation](https://doc.rust-lang.org/stable/std/)
 - [The Rust Book](https://doc.rust-lang.org/book/)
 
-## Doing the tutorial
+## Tutorial structure
 
-TODO
+The tutorial is structured into three parts, each as a file under the `tests/` directory: 
+
+- `part0.rs`: a warm up that shows various `egg` APIs
+    - This is heavily based on one of the online `egg` [tutorials](https://docs.rs/egg/latest/egg/tutorials/_02_getting_started/index.html).
+- `part1.rs`: a simple optimizer for rational arithmetic
+- `part2.rs`: a more powerful usage of e-class analyses using intervals
+    - This idea is based on a paper ["Abstract Interpretation on E-Graphs"](https://arxiv.org/abs/2203.09191)
+      presented at the [EGRAPHS](https://pldi22.sigplan.org/home/egraphs-2022) workshop.
+
+

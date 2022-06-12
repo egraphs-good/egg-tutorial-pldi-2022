@@ -1,7 +1,13 @@
+//! part 2
+//!
+//! This time we will try making our own language for rational arithmetic.
+//! This will allow us to actually interpret some of the data in the e-nodes.
+//! In particular, we can implement our first e-class analysis that will
+//! perform constant folding!
 use egg::*;
-use num::*;
 use std::time::Duration;
 
+use num::*;
 type Num = num::BigRational;
 
 define_language! {
