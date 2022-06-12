@@ -185,7 +185,13 @@ egg::test_fn! {
    "(* 1 x)", "x"        // one or more ending exprs to prove the starting expr equivalent to
 }
 
-egg::test_fn! {math_simplify_add, rules(), "(+ x (+ x (+ x x)))" => "(* 4 x)" }
+egg::test_fn! {
+   math_simplify_add, rules(),
+   // here we use the (optional) "runner =" syntax to change the Runner used for this test
+   // check out what the output looks like with explanations enabled!
+   runner = Runner::default().with_explanations_enabled(),
+   "(+ x (+ x (+ x x)))" => "(* 4 x)"
+}
 
 // TODO: Uncomment this test and make sure it passes after you implement subtraction.
 // egg::test_fn! { math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
