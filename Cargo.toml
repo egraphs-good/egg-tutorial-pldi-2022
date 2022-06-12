@@ -6,9 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# egg = "0.8"
-# egg = { path = "../egg" }
-egg = { git = "https://github.com/egraphs-good/egg", branch = "tutorial-changes" }
+egg = "0.9"
 
 # for the interval library
 num = "0.4"
