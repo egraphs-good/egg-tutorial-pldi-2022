@@ -19,9 +19,9 @@ define_language! {
     enum Math {
         Num(Num),
         "+" = Add([Id; 2]),
-        // TODO: Add subtraction
+        "-" = Sub([Id; 2]),
         "*" = Mul([Id; 2]),
-        // TODO: Add division
+        "/" = Div([Id; 2]),
         Var(Symbol),
     }
 }
@@ -44,9 +44,9 @@ impl Analysis<Math> for IntervalAnalysis {
         match enode {
             Math::Num(n) => Interval::singleton(n.clone()),
             Math::Add([a, b]) => get(a) + get(b),
-            // TODO: Implement the subtraction case
+            Math::Sub([a, b]) => get(a) - get(b),
             Math::Mul([a, b]) => get(a) * get(b),
-            // TODO: Implement the division case
+            Math::Div([a, b]) => get(a) / get(b),
             _ => Interval::default(),
         }
     }
@@ -89,12 +89,11 @@ fn rules() -> Vec<Rewrite<Math, IntervalAnalysis>> {
         rewrite!("assoc-add"; "(+ ?a (+ ?b ?c))" => "(+ (+ ?a ?b) ?c)"),
         rewrite!("assoc-mul"; "(* ?a (* ?b ?c))" => "(* (* ?a ?b) ?c)"),
     
-        // TODO: Uncomment these rules once you add subtraction
-        // rewrite!("sub-canon"; "(- ?a ?b)" => "(+ ?a (* -1 ?b))"),
-        // rewrite!("canon-sub"; "(+ ?a (* -1 ?b))" => "(- ?a ?b)"),
-        // rewrite!("cancel-sub"; "(- ?a ?a)" => "0"),
+        rewrite!("sub-canon"; "(- ?a ?b)" => "(+ ?a (* -1 ?b))"),
+        rewrite!("canon-sub"; "(+ ?a (* -1 ?b))" => "(- ?a ?b)"),
+        rewrite!("cancel-sub"; "(- ?a ?a)" => "0"),
 
-        // TODO: Add a rule that says that a - b is equivalent to -1 * (b - a)
+        rewrite!("flip-sub"; "(- ?a ?b)" => "(* -1 (- ?b ?a))"),
 
         rewrite!("add2-mul"; "(+ ?a ?a)" => "(* 2 ?a)"),
         rewrite!("mul-add2"; "(* 2 ?a)"  => "(+ ?a ?a)"),
@@ -110,19 +109,17 @@ fn rules() -> Vec<Rewrite<Math, IntervalAnalysis>> {
         // These div rules are **not** unsound, even with the possibility of dividing by zero.
         // Note how the left and right sides are "equally" sound, i.e., you always divide by ?c
         // You get in trouble when you make things more or less "sound" by changing what you divide by
-        // TODO: Uncomment these rules once you add division
-        // rewrite!("add-to-frac"; "(+ ?a (/ ?b ?c))" => "(/ (+ (* ?a ?c) ?b) ?c)"),
-        // rewrite!("frac-to-add"; "(/ (+ (* ?a ?c) ?b) ?c)" => "(+ ?a (/ ?b ?c))" ),
-        // rewrite!("mul-div";     "(* ?a (/ ?b ?c))" => "(/ (* ?a ?b) ?c)"),
-        // rewrite!("div-mul";     "(/ (* ?a ?b) ?c)" => "(* ?a (/ ?b ?c))"),
-        // rewrite!("frac-lift";   "(/ ?a ?b)" => "(/ (- ?b (- ?b ?a)) ?b)"),
+        rewrite!("add-to-frac"; "(+ ?a (/ ?b ?c))" => "(/ (+ (* ?a ?c) ?b) ?c)"),
+        rewrite!("frac-to-add"; "(/ (+ (* ?a ?c) ?b) ?c)" => "(+ ?a (/ ?b ?c))" ),
+        rewrite!("mul-div";     "(* ?a (/ ?b ?c))" => "(/ (* ?a ?b) ?c)"),
+        rewrite!("div-mul";     "(/ (* ?a ?b) ?c)" => "(* ?a (/ ?b ?c))"),
+        rewrite!("frac-lift";   "(/ ?a ?b)" => "(/ (- ?b (- ?b ?a)) ?b)"),
 
         // We can make these sound now by using the interval information!
         // The `if` syntax allows you to add a `Condition` to a rewrite
 
-        // TODO: Uncomment this rule once you add division
-        // rewrite!("cancel-div"; "(/ ?a ?a)" => "1" if is_non_zero("?a")),
-        // TODO: Add a rule that 0 / a is 0 if a is not zero
+        rewrite!("cancel-div"; "(/ ?a ?a)" => "1" if is_non_zero("?a")),
+        rewrite!("zero-div"; "(/ 0 ?a)" => "0" if is_non_zero("?a")),
     ]
 }
 
@@ -137,16 +134,14 @@ fn is_non_zero(var: &str) -> impl Fn(&mut EGraph<Math, IntervalAnalysis>, Id, &S
     }
 }
 
-// TODO: Remove #[ignore] from the next line and make sure the test passes
-egg::test_fn! { #[ignore] div_zero_doesnt_crash, rules(), "(* 1 (/ 0 0))" => "(/ 0 0)" }
+egg::test_fn! { div_zero_doesnt_crash, rules(), "(* 1 (/ 0 0))" => "(/ 0 0)" }
 
 // The same tests from part 1 should work fine!
 
 egg::test_fn! { simple_constant_fold, rules(), "(* x (+ -1 2))" => "(* 1 x)", "x" }
 
 egg::test_fn! { math_simplify_add, rules(), "(+ x (+ x (+ x x)))" => "(* 4 x)" }
-// TODO: Remove #[ignore] from the next line and make sure the test passes
-egg::test_fn! { #[ignore] math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
+egg::test_fn! { math_simplify_const, rules(), "(+ 1 (- a (* (- 2 1) a)))" => "1" }
 
 egg::test_fn! {
     math_simplify_factor, rules(),
@@ -158,8 +153,7 @@ egg::test_fn! {
 // Let's check to make sure we can actually prove the right math needed to
 // reduce the interval from the example in the paper.
 egg::test_fn! {
-    // TODO: Remove #[ignore] from the next line and make sure the test passes
-    #[ignore] check_prove_fraction_example,
+    check_prove_fraction_example,
     rules(),
     "(- 1
         (/ (* 2 y)
@@ -185,7 +179,6 @@ egg::test_fn! {
 
 // Now we are ready do actually do the thing!
 #[test]
-#[ignore] // TODO: Remove this line and make sure the test passes
 fn optimize_expr_from_egraphs_paper() {
     let expr: RecExpr<Math> = "
     (- 1 
@@ -252,7 +245,6 @@ fn optimize_interval(s: &str, intervals: &[(&str, &str)]) -> Interval {
 
 // The same test above, using our new function
 #[test]
-#[ignore] // TODO: Remove this line and make sure the test passes.
 fn test_paper_example() {
     assert_eq!(
         optimize_interval(
@@ -267,7 +259,6 @@ fn test_paper_example() {
 }
 
 #[test]
-#[ignore] // TODO: Remove this line and make sure the test passes.
 fn test_other_paper_example() {
     let intervals = &[("x", "1, 2"), ("y", "1, 2")];
     assert_eq!(

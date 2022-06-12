@@ -3,8 +3,8 @@ use num::{BigRational, Zero};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Default)]
 pub struct Interval {
-    pub lo: Option<BigRational>,
-    pub hi: Option<BigRational>,
+    pub lo: Option<BigRational>, // None represents -inf
+    pub hi: Option<BigRational>, // None represents inf
 }
 
 fn map2(
