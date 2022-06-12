@@ -37,14 +37,14 @@ fn now_youre_speaking_my_language() {
     let mut egraph: EGraph<SymbolLang, ()> = Default::default();
     let a = egraph.add(SymbolLang::leaf("a"));
     let b = egraph.add(SymbolLang::leaf("b"));
-    let foo = egraph.add(SymbolLang::new("foo", vec![a, b]));
+    let foo_ab = egraph.add(SymbolLang::new("foo", vec![a, b]));
 
     // we can also add RecExprs to an egraph
-    let foo2 = egraph.add_expr(&expr);
+    let foo_ab2 = egraph.add_expr(&expr);
 
     // note that if you add the same thing to an e-graph twice,
     // you'll get back equivalent Ids
-    assert_eq!(foo, foo2);
+    assert_eq!(foo_ab, foo_ab2);
 }
 
 #[test]
