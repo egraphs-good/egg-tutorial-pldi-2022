@@ -33,7 +33,7 @@ cd egg-tutorial-pldi-2022
 cargo test
 ```
 
-All of the completed exercises are in the `tests/solutions` directory,
+All of the completed exercises are in the `tests/` directory as well,
  so if you get stuck, just copy-paste!
 
 If you got this far, you're ready for the tutorial to begin!
